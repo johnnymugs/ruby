@@ -4,6 +4,7 @@ require 'tempfile'
 
 begin
   require 'zlib'
+  require '/Users/johnnymukai/old projects/ruby/zlib_additions.rb'
 rescue LoadError
 end
 
@@ -956,6 +957,30 @@ if defined? Zlib
         assert_equal(Encoding::ASCII_8BIT, read_size.encoding)
         assert_equal(content, read_size)
       }
+    end
+
+    def test_read_all
+      # clean this up obvi
+      # before you go too insane make sure this works with command line gunzip
+      file1_contents = "A cloud began to cover the sun slowly, wholly, shadowing the bay in deeper green."
+      file2_contents = "It lay beneath him, a bowl of bitter waters."
+      tempfile1 = Tempfile.create("test_zlib_gzip_read_all1")
+      tempfile2 = Tempfile.create("test_zlib_gzip_read_all2")
+      Zlib::GzipWriter.open(tempfile1) { |writer| writer.print(file1_contents) }
+      Zlib::GzipWriter.open(tempfile2) { |writer| writer.print(file2_contents) }
+
+      test_file = Tempfile.open("test_zlib_gzip_read_all3") do |file|
+        file.write tempfile1.read
+        file.write "\r\n"
+        file.write tempfile2.read
+        file # really?
+      end
+
+      # require 'byebug'
+      # byebug
+
+      output = Zlib::GzipReader.each_file(test_file).map { |gz_io| gz_io.read }
+      assert_equal(file1_contents + file2_contents, output)
     end
   end
 
