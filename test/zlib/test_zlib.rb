@@ -4,7 +4,7 @@ require 'tempfile'
 
 begin
   require 'zlib'
-  require '/Users/johnnymukai/old projects/ruby/zlib_additions.rb'
+  require_relative '../../zlib_additions.rb'
 rescue LoadError
 end
 
@@ -233,6 +233,9 @@ if defined? Zlib
   end
 
   class TestZlibInflate < Test::Unit::TestCase
+    def initialize(mr_meth)
+      super(mr_meth)
+    end
     def test_class_inflate_dictionary
       assert_raises(Zlib::NeedDict) do
         Zlib::Inflate.inflate([0x08,0x3C,0x0,0x0,0x0,0x0].pack("c*"))
@@ -302,6 +305,10 @@ if defined? Zlib
       z = Zlib::Inflate.new
       s = z.inflate(s)
       s << z.inflate(nil)
+
+      require 'byebug'
+      byebug
+
       assert_equal("foo", s)
       z.inflate("foo") # ???
       z << "foo" # ???
@@ -971,13 +978,9 @@ if defined? Zlib
 
       test_file = Tempfile.open("test_zlib_gzip_read_all3") do |file|
         file.write tempfile1.read
-        file.write "\r\n"
         file.write tempfile2.read
         file # really?
       end
-
-      # require 'byebug'
-      # byebug
 
       output = Zlib::GzipReader.each_file(test_file).map { |gz_io| gz_io.read }
       assert_equal(file1_contents + file2_contents, output)
@@ -1091,11 +1094,12 @@ if defined? Zlib
     end
 
     def test_inflate
-      TestZlibInflate.new(__name__).test_inflate
+      puts "this the one that errah"
+      TestZlibInflate.new(method_name).test_inflate
     end
 
     def test_deflate
-      TestZlibDeflate.new(__name__).test_deflate
+      TestZlibDeflate.new(method_name).test_deflate
     end
 
     def test_deflate_stream
