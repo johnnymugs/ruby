@@ -306,8 +306,8 @@ if defined? Zlib
       s = z.inflate(s)
       s << z.inflate(nil)
 
-      require 'byebug'
-      byebug
+      # require 'byebug'
+      # byebug
 
       assert_equal("foo", s)
       z.inflate("foo") # ???
@@ -1095,11 +1095,11 @@ if defined? Zlib
 
     def test_inflate
       puts "this the one that errah"
-      TestZlibInflate.new(method_name).test_inflate
+      TestZlibInflate.new(__name__).test_inflate
     end
 
     def test_deflate
-      TestZlibDeflate.new(method_name).test_deflate
+      TestZlibDeflate.new(__name__).test_deflate
     end
 
     def test_deflate_stream

@@ -165,6 +165,7 @@ static VALUE gzfile_reader_end_run(VALUE);
 static void gzfile_reader_end(struct gzfile*);
 static void gzfile_reader_rewind(struct gzfile*);
 static VALUE gzfile_reader_get_unused(struct gzfile*);
+static VALUE gzfile_reader_get_next_file(struct gzfile*);
 static struct gzfile *get_gzfile(VALUE);
 static VALUE gzfile_ensure_close(VALUE);
 static VALUE rb_gzfile_s_wrap(int, VALUE*, VALUE);
@@ -775,12 +776,15 @@ zstream_detach_buffer(struct zstream *z)
 	/* prevent tiny yields mid-stream, save for next
 	 * zstream_expand_buffer() or stream end */
 	return Qnil;
+  printf("not ZSTREAM IS FINISHED not ZSTREAM IS GZFILE\n");
     }
 
     if (NIL_P(z->buf)) {
 	dst = rb_str_new(0, 0);
+  printf("nil p z buf\n");
     }
     else {
+      printf("not nilp z buf\n");
 	dst = z->buf;
 	rb_str_resize(dst, z->buf_filled);
 	rb_obj_reveal(dst, rb_cString);
@@ -798,6 +802,8 @@ zstream_detach_buffer(struct zstream *z)
 	dst = Qnil;
     }
 
+    printf("updog\n");
+    rb_p(dst);
     return dst;
 }
 
@@ -2367,6 +2373,7 @@ static int
 gzfile_read_raw_ensure(struct gzfile *gz, long size)
 {
     VALUE str;
+    printf("gzfile_read_raw_ensure\n");
 
     while (NIL_P(gz->z.input) || RSTRING_LEN(gz->z.input) < size) {
 	str = gzfile_read_raw(gz);
@@ -2596,6 +2603,8 @@ gzfile_check_footer(struct gzfile *gz)
 {
     unsigned long crc, length;
 
+    printf("i like checking footers\n");
+
     gz->z.flags |= GZFILE_FLAG_FOOTER_FINISHED;
 
     if (!gzfile_read_raw_ensure(gz, 8)) { /* 8 is the size of gzip footer */
@@ -2656,6 +2665,7 @@ gzfile_read_more(struct gzfile *gz)
 static void
 gzfile_calc_crc(struct gzfile *gz, VALUE str)
 {
+  printf("calcing crc\n");
     if (RSTRING_LEN(str) <= gz->ungetc) {
 	gz->ungetc -= RSTRING_LEN(str);
     }
@@ -2680,6 +2690,7 @@ gzfile_newstr(struct gzfile *gz, VALUE str)
 	OBJ_TAINT(str);
 	return str;
     }
+
     return rb_str_conv_enc_opts(str, gz->enc2, gz->enc,
 				gz->ecflags, gz->ecopts);
 }
@@ -2763,14 +2774,19 @@ static VALUE
 gzfile_read_all(struct gzfile *gz)
 {
     VALUE dst;
+    printf("READALL\n");
 
     while (!ZSTREAM_IS_FINISHED(&gz->z)) {
+      printf("not ZSTREAM IS FINISHED so gzfile_read_more\n");
 	gzfile_read_more(gz);
     }
     if (GZFILE_IS_FINISHED(gz)) {
+      printf("GZFILE IS FINISHED\n");
 	if (!(gz->z.flags & GZFILE_FLAG_FOOTER_FINISHED)) {
+    printf("time to check the footer\n");
 	    gzfile_check_footer(gz);
 	}
+  printf("i checked the footer now i return the str\n");
 	return rb_str_new(0, 0);
     }
 
@@ -2778,6 +2794,8 @@ gzfile_read_all(struct gzfile *gz)
     if (NIL_P(dst)) return dst;
     gzfile_calc_crc(gz, dst);
     OBJ_TAINT(dst);
+
+    printf("return gzfile_newstr\n");
     return gzfile_newstr(gz, dst);
 }
 
@@ -2906,6 +2924,7 @@ static VALUE
 gzfile_reader_get_unused(struct gzfile *gz)
 {
     VALUE str;
+    printf("unused stuff called\n");
 
     if (!ZSTREAM_IS_READY(&gz->z)) return Qnil;
     if (!GZFILE_IS_FINISHED(gz)) return Qnil;
@@ -2914,6 +2933,30 @@ gzfile_reader_get_unused(struct gzfile *gz)
     }
     if (NIL_P(gz->z.input)) return Qnil;
 
+    str = rb_str_resurrect(gz->z.input);
+    OBJ_TAINT(str);  /* for safe */
+    return str;
+}
+
+static VALUE
+gzfile_reader_get_next_file(struct gzfile *gz)
+{
+    VALUE str;
+    VALUE newgzfile;
+    newgzfile = rb_gzreader_initialize(0, Qnil, Qnil); // completely insane?
+    // definitely not qnil qnil ^^^^^^^
+    rb_p(newgzfile);
+
+    printf("woo hoo next file\n");
+
+    if (!ZSTREAM_IS_READY(&gz->z)) return Qnil;
+    if (!GZFILE_IS_FINISHED(gz)) return Qnil;
+    if (!(gz->z.flags & GZFILE_FLAG_FOOTER_FINISHED)) {
+	gzfile_check_footer(gz);
+    }
+    if (NIL_P(gz->z.input)) return Qnil;
+
+    printf("instead of resurrect, make new gzfilereader\n");
     str = rb_str_resurrect(gz->z.input);
     OBJ_TAINT(str);  /* for safe */
     return str;
@@ -3729,6 +3772,15 @@ rb_gzreader_unused(VALUE obj)
     return gzfile_reader_get_unused(gz);
 }
 
+static VALUE
+rb_gzreader_next_file(VALUE obj)
+{
+  struct gzfile *gz;
+  Data_Get_Struct(obj, struct gzfile, gz);
+  return gzfile_reader_get_next_file(gz);
+}
+
+
 /*
  * Document-method: Zlib::GzipReader#read
  *
@@ -3741,8 +3793,10 @@ rb_gzreader_read(int argc, VALUE *argv, VALUE obj)
     VALUE vlen;
     long len;
 
+    printf("what is the relationship between vlen and len\n");
     rb_scan_args(argc, argv, "01", &vlen);
     if (NIL_P(vlen)) {
+      printf("nil_p vlen\n");
 	return gzfile_read_all(gz);
     }
 
@@ -4445,6 +4499,7 @@ Init_zlib()
     rb_define_method(cGzipReader, "initialize", rb_gzreader_initialize, -1);
     rb_define_method(cGzipReader, "rewind", rb_gzreader_rewind, 0);
     rb_define_method(cGzipReader, "unused", rb_gzreader_unused, 0);
+    rb_define_method(cGzipReader, "next_file", rb_gzreader_next_file, 0);
     rb_define_method(cGzipReader, "read", rb_gzreader_read, -1);
     rb_define_method(cGzipReader, "readpartial", rb_gzreader_readpartial, -1);
     rb_define_method(cGzipReader, "getc", rb_gzreader_getc, 0);

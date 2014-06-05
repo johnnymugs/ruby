@@ -1,7 +1,7 @@
 #define RUBY_VERSION "2.2.0"
 #define RUBY_RELEASE_DATE "2014-05-29"
 #define RUBY_PATCHLEVEL -1
-#define RUBY_BRANCH_NAME "trunk"
+#define RUBY_BRANCH_NAME "updog"
 
 #define RUBY_RELEASE_YEAR 2014
 #define RUBY_RELEASE_MONTH 5
